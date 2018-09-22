@@ -1,6 +1,6 @@
 | master | develop |
 | ------------- | ------------- |
-| ![Build Status](https://travis-ci.org/cristal-ise/kernel.svg?branch=master) | ![Build Status](https://travis-ci.org/cristal-ise/kernel.svg?branch=develop) |
+| [![Build Status](https://travis-ci.org/cristal-ise/dsl.svg?branch=master)](https://travis-ci.org/cristal-ise/dsl) | [![Build Status](https://travis-ci.org/cristal-ise/dsl.svg?branch=develop)](https://travis-ci.org/cristal-ise/dsl) |
 
 # dsl 
 
