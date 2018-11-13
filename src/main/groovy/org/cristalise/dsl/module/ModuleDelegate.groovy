@@ -51,6 +51,7 @@ class ModuleDelegate {
 
     static final String exportRoot = "src/main/resources/boot"
     static final String exportDBRoot = "src/main/script/"
+    static final String exportPOJORoot = "src/main/java/com/titusgt/hmws/entities/"
 
 
     public ModuleDelegate(String ns, String n, int v) {
@@ -88,6 +89,10 @@ class ModuleDelegate {
         def database = DatabaseBuilder.build(name, version, cl)
         database.export(new File(exportDBRoot))
         return database
+    }
+    
+    public POJO POJO(String name, Closure cl) {
+        return POJOBuilder.build(name, cl)
     }
 
     public Query Query(String name, Integer version) {
