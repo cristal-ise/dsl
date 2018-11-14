@@ -21,6 +21,7 @@
 package org.cristalise.dsl.pojo
 
 import groovy.transform.CompileStatic
+
 import org.cristalise.kernel.common.InvalidDataException
 import org.cristalise.kernel.utils.Logger
 
@@ -42,6 +43,19 @@ class POJOBuilder {
     public POJOBuilder(String name) {
         this.name = name
     }
+	
+	/**
+	 *
+	 * @param pojoFile
+	 * @return
+	 */
+	public POJOBuilder loadPOJO(String pojoFile) {
+		Logger.msg 5, "POJOBuilder.loadPOJO() - From file:$pojoFile"
+
+		pojo = new POJO(name, new File(pojoFile).text)
+		
+		return this
+	}
 
     /**
      *
@@ -58,10 +72,10 @@ class POJOBuilder {
     }
 
     private static void generatePOJO(POJOBuilder pojoBuilder, Closure cl) {
-        def pojoDelegate = new DatabaseDelegate()
+        def pojoDelegate = new POJODelegate()
         try {
-            pojoDelegate.processClosure(db.name, cl)
-            Logger.msg 5, "POJOBuilder - generated pojo data:\n" + pojoDelegate.pojoData
+            pojoDelegate.processClosure(pojoBuilder.name, cl)
+            Logger.msg 5, "POJOBuilder - generated pojo data:\n" + pojoDelegate.pojoString
 
             pojoBuilder.pojo = new POJO(pojoBuilder.name, pojoDelegate.pojoString)
         } catch (Exception e) {
@@ -72,18 +86,12 @@ class POJOBuilder {
 
     /**
      *
-     * @param module
      * @param name
-     * @param version
-     * @param dbCreateFile
-     * @param dbInsertFile
-     * @param dbSelectFile
-     * @param dbUpdateFile
+     * @param pojoFile
      * @return
      */
-    public static POJOBuilder build(String module, String name, int version, String dbCreateFile, String dbInsertFile,
-                                        String dbSelectFile, String dbSelectAllFile, String dbUpdateFile, String dbDeleteFile, String dbScriptFile) {
-        def sb = new POJOBuilder(module, name, version)
-        return sb.loadDB(dbCreateFile, dbInsertFile, dbSelectFile, dbSelectAllFile, dbUpdateFile, dbDeleteFile, dbScriptFile)
+    public static POJOBuilder build(String name, String pojoFile) {
+        def pb = new POJOBuilder(name)
+        return pb.loadPOJO(pojoFile)
     }
 }

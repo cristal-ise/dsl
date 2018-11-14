@@ -29,7 +29,7 @@ import org.cristalise.kernel.utils.Logger
  */
 class POJODelegate {
 
-    List<String> importLines = new ArrayList<>();
+    List<String> importLines = []
     String uuidField = "UUID"
     String pojoString
 
@@ -40,17 +40,17 @@ class POJODelegate {
      */
     void processClosure(String name, Closure cl) {
 
-        assert cl, "Database only works with a valid Closure"
+        assert cl, "POJO only works with a valid Closure"
 
-        Logger.msg 1, "Database(start) ---------------------------------------"
+        Logger.msg 1, "POJO(start) ---------------------------------------"
 
         def objBuilder = new ObjectGraphBuilder()
         objBuilder.classLoader = this.class.classLoader
         objBuilder.classNameResolver = 'org.cristalise.dsl.persistency.outcome'
         cl.delegate = objBuilder
-        buildDB(name, cl())
+        buildPOJO(name, cl())
 
-        Logger.msg 1, "Database(end) +++++++++++++++++++++++++++++++++++++++++"
+        Logger.msg 1, "POJO(end) +++++++++++++++++++++++++++++++++++++++++"
     }
 
     /**
@@ -58,15 +58,12 @@ class POJODelegate {
      * @param name
      * @param s
      */
-    void buildDB(String name, Struct s) {
-        if (!s) throw new InvalidDataException("Database cannot be built from empty declaration")
-        def tableName = name.toUpperCase()
-        def table = "def ${tableName} = table(name('${tableName}'))\n"
-        def dbBuffer = new StringBuffer()
-        def writer = new StringBufferWriter(dbBuffer)
+    void buildPOJO(String name, Struct s) {
+        if (!s) throw new InvalidDataException("POJO cannot be built from empty declaration")
+        def classLine = "public class ${name} {\n"
+        def pojoBuffer = new StringBuffer()
+        def writer = new StringBufferWriter(pojoBuffer)
         writer.append(importLines)
-        writer.append(commentLine)
-        writer.append(table)
 
         def fields = buildFields(writer, s)
         String commonLines = writer.toString()
@@ -82,7 +79,7 @@ class POJODelegate {
      * @return
      */
     private List<String> buildFields(StringBufferWriter w, Struct s) {
-        Logger.msg 1, "DatabaseDelegate.buildStruct() - Struct: $s.name"
+        Logger.msg 1, "POJODelegate.buildStruct() - Struct: $s.name"
 
         def jqFields = new ArrayList()
         if (s.fields || s.structs || s.anyField) {

@@ -92,7 +92,9 @@ class ModuleDelegate {
     }
     
     public POJO POJO(String name, Closure cl) {
-        return POJOBuilder.build(name, cl)
+        def pojo = POJOBuilder.build(name, cl)
+		pojo.generate(new File(exportPOJORoot))
+		return pojo
     }
 
     public Query Query(String name, Integer version) {
