@@ -27,6 +27,8 @@ import org.cristalise.dsl.lifecycle.definition.ElemActDefBuilder
 import org.cristalise.dsl.persistency.database.Database
 import org.cristalise.dsl.persistency.database.DatabaseBuilder
 import org.cristalise.dsl.persistency.outcome.SchemaBuilder
+import org.cristalise.dsl.pojo.POJOBuilder
+import org.cristalise.dsl.pojo.POJO
 import org.cristalise.dsl.querying.QueryBuilder
 import org.cristalise.dsl.scripting.ScriptBuilder
 import org.cristalise.kernel.lifecycle.ActivityDef
@@ -51,7 +53,6 @@ class ModuleDelegate {
 
     static final String exportRoot = "src/main/resources/boot"
     static final String exportDBRoot = "src/main/script/"
-    static final String exportPOJORoot = "src/main/java/com/titusgt/hmws/entities/"
 
 
     public ModuleDelegate(String ns, String n, int v) {
@@ -91,8 +92,8 @@ class ModuleDelegate {
         return database
     }
     
-    public POJO POJO(String name, Closure cl) {
-        def pojo = POJOBuilder.build(name, cl)
+    public POJO POJO(String name, Closure cl, String exportPOJORoot, String packageName) {
+        def pojo = POJOBuilder.build(name, cl, packageName)
 		pojo.generate(new File(exportPOJORoot))
 		return pojo
     }

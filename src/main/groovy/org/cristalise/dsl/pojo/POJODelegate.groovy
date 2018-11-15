@@ -30,7 +30,8 @@ import org.cristalise.kernel.utils.Logger
 class POJODelegate {
 
     List<String> importLines = []
-    String uuidField = "UUID"
+    String packageLine;
+	String uuidField = "UUID"
     String pojoString
 
     /**
@@ -38,6 +39,10 @@ class POJODelegate {
      * @param name
      * @param cl
      */
+	public POJODelegate(String packageName) {
+		this.packageLine = "package " + packageName + ";\n"
+	}
+	
     void processClosure(String name, Closure cl) {
 
         assert cl, "POJO only works with a valid Closure"

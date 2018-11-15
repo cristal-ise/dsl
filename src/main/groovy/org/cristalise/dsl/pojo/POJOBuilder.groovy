@@ -63,16 +63,16 @@ class POJOBuilder {
      * @param cl
      * @return
      */
-    public static POJO build(String name, Closure cl) {
+    public static POJO build(String name, Closure cl, String packageName) {
         def pojo = new POJOBuilder(name)
         
-        generatePOJO(pojo, cl)
+        generatePOJO(pojo, cl, packageName)
         
         return pojo.pojo
     }
 
-    private static void generatePOJO(POJOBuilder pojoBuilder, Closure cl) {
-        def pojoDelegate = new POJODelegate()
+    private static void generatePOJO(POJOBuilder pojoBuilder, Closure cl, String packageName) {
+        def pojoDelegate = new POJODelegate(packageName)
         try {
             pojoDelegate.processClosure(pojoBuilder.name, cl)
             Logger.msg 5, "POJOBuilder - generated pojo data:\n" + pojoDelegate.pojoString
