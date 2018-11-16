@@ -21,6 +21,7 @@
 package org.cristalise.dsl.pojo
 
 import org.codehaus.groovy.runtime.StringBufferWriter
+import org.cristalise.dsl.persistency.database.DatabaseType
 import org.cristalise.dsl.persistency.outcome.Struct
 import org.cristalise.kernel.common.InvalidDataException
 import org.cristalise.kernel.utils.Logger
@@ -34,15 +35,16 @@ class POJODelegate {
 	String uuidField = "UUID"
     String pojoString
 
-    /**
-     *
-     * @param name
-     * @param cl
-     */
+    
 	public POJODelegate(String packageName) {
 		this.packageLine = "package " + packageName + ";\n"
 	}
 	
+	/**
+	 *
+	 * @param name
+	 * @param cl
+	 */
     void processClosure(String name, Closure cl) {
 
         assert cl, "POJO only works with a valid Closure"
@@ -66,39 +68,32 @@ class POJODelegate {
     void buildPOJO(String name, Struct s) {
         if (!s) throw new InvalidDataException("POJO cannot be built from empty declaration")
         def classLine = "public class ${name} {\n"
-        def pojoBuffer = new StringBuffer()
-        def writer = new StringBufferWriter(pojoBuffer)
-        writer.append(importLines)
-
-        def fields = buildFields(writer, s)
-        String commonLines = writer.toString()
+        def properties = buildProperties(s)
 
         // construct pojo
-        pojoString = buildScriptContent(tableName, commonLines, fields, DatabaseType.CREATE);
+        pojoString = buildPOJOContent(classLine, properties);
     }
 
     /**
      *
-     * @param w
      * @param s
      * @return
      */
-    private List<String> buildFields(StringBufferWriter w, Struct s) {
+    private List<String> buildProperties(Struct s) {
         Logger.msg 1, "POJODelegate.buildStruct() - Struct: $s.name"
 
-        def jqFields = new ArrayList()
+        def properties = new ArrayList()
         if (s.fields || s.structs || s.anyField) {
-            w.append("def ${uuidField} = field(name('${uuidField}'), UUID.class)\n")
-            jqFields.add(uuidField)
+            properties.add(uuidField)
             s.fields.each {
-                def fieldName = "${it.name}".toUpperCase()
-                def type = getJooqFieldTye(it.type)
-                w.append("def ${fieldName} = field(name('${fieldName}'), ${type})\n")
-                jqFields << it.name
+                def name = "${it.name}".toUpperCase()
+                def type = getJavaFieldType(it.type)
+				def property = type + ":" + name
+                properties << property
             }
         }
 
-        return jqFields
+        return properties
 
     }
 
@@ -108,7 +103,7 @@ class POJODelegate {
      * @return
      * @throws IOException
      */
-    private String getJooqFieldTye(String structType) throws IOException {
+    private String getJavaFieldType(String structType) throws IOException {
 
         def fieldType
         if (structType.contains(":")) {
@@ -117,34 +112,35 @@ class POJODelegate {
 
         switch (fieldType.toLowerCase()) {
             case "double":
-                return "Double.class"
+                return "Double"
             case "int":
             case "integer":
-                return "Integer.class"
+                return "Integer"
             case "uuid":
-                return "UUID.class"
+				importLines << "import java.util.UUID;\n"
+                return "UUID"
             case "boolean":
-                return "Boolean.class"
+                return "Boolean"
             case "float":
-                return "Float.class"
+                return "Float"
             case "long":
-                return "Long.class"
+                return "Long"
             case "byte":
                 return "Byte.class"
-                break
             case "char":
             case "character":
-                return "Character.class"
+                return "Character"
             case "short":
-                return "Short.class"
+                return "Short"
             case "datetime":
-                return "Timestamp.class"
             case "date":
-                return "Date.class"
+				importLines << "import java.util.Date;\n"
+                return "Date"
             case "string":
-                return "String.class"
+                return "String"
             case "decimal":
-                return "BigDecimal.class"
+				importLines << "import java.math.BigDecimal;\n"
+                return "BigDecimal"
             default:
                 throw new IOException("Invalid field data type. '${fieldType}'")
         }
@@ -152,119 +148,54 @@ class POJODelegate {
 
     /**
      *
-     * @param name
-     * @param commonLines
-     * @param fields
-     * @param type
+     * @param classLine
+     * @param properties
      * @return
      */
-    private String buildScriptContent(String name, String commonLines, List<String> fields, DatabaseType type) {
-
-        def w = new StringBufferWriter(new StringBuffer(commonLines + "\n"))
-
-        if (type == DatabaseType.CREATE) { // create table content
-
-            w.append("dsl.createTableIfNotExists(${name})\n")
-            fields.each {
-                w.append("        .column(${it.toUpperCase()})\n")
-            }
-            w.append("        .constraints(constraint('PK_' + ${name}).primaryKey(${uuidField}))\n")
-            w.append("        .execute()\n")
-
-        } else if (type == DatabaseType.INSERT) { // insert query content
-
-            w.append("def insertQueryResult = dsl.insertQuery(${name})\n")
-            fields.each {
-                if (it == uuidField){
-                    w.append("insertQueryResult.addValue(${it.toUpperCase()}, uuid)\n")
-                }else {
-                    w.append("insertQueryResult.addValue(${it.toUpperCase()}, outcome.getField('${it}'))\n")
-                }
-            }
-            w.append("insertQueryResult.onDuplicateKeyUpdate(true)\n")
-            w.append("insertQueryResult.onConflict(${uuidField})\n")
-            fields.each {
-                if (it != uuidField){
-                    w.append("insertQueryResult.addValueForUpdate(${it.toUpperCase()}, outcome.getField('${it}'))\n")
-                }
-            }
-            w.append("def result = insertQueryResult.execute()\n\n")
-            w.append("result")
-
-        } else if (type == DatabaseType.SELECT) { //select query content
-            w.append("def result = dsl.select()\n")
-            w.append("        .from(${name})\n")
-            w.append("        .where(${uuidField}.equal(uuid))\n")
-            w.append("        .fetchOne()\n\n")
-            w.append("result")
-        } else if (type == DatabaseType.SELECT_ALL) { //select query content
-            w.append("def result = dsl.select()\n")
-            w.append("        .from(${name})\n")
-            w.append("        .where(${uuidField}.equal(uuid))\n")
-            w.append("        .fetch()\n\n")
-            w.append("result")
-        } else if (type == DatabaseType.UPDATE) { // update query content
-            w.append("def updateQueryResult = dsl.updateQuery(${name})\n")
-            fields.each {
-                if (it != uuidField) {
-                    w.append("updateQueryResult.addValue(${it.toUpperCase()}, outcome.getField('${it}'))\n")
-                }
-            }
-            w.append("updateQueryResult.addConditions(${uuidField}.equal(uuid))\n")
-            w.append("def result = updateQueryResult.execute()\n\n")
-            w.append("result")
-        } else if (type == DatabaseType.DELETE) {
-            w.append("def result = dsl.delete(${name})\n")
-            w.append("        .where(${uuidField}.equal(uuid))\n")
-            w.append("        .execute()\n\n")
-            w.append("result")
-        }
-
-        return w.toString()
+    private String buildPOJOContent(String classLine, List<String> properties) {
+        def pojoBuffer = new StringBuffer()
+        def writer = new StringBufferWriter(pojoBuffer)
+		
+		writer.append(packageLine)
+		writer.append("\n")
+		
+		importLines.each { 
+			writer.append(it)
+		}
+		
+		writer.append("\n")
+		writer.append(classLine)
+		
+		properties.each { 
+			def propertyTypeName = it.split(":")
+			def type = propertyTypeName[0]
+			def name = propertyTypeName[1]
+			def camelCaseName = name[0].toLowerCase() + name.substring(1)
+			
+			writer.append("\tprivate " + type + " " + camelCaseName + ";\n")
+		}
+		
+		writer.append("\n")
+		
+		properties.each { 
+			def propertyTypeName = it.split(":")
+			def type = propertyTypeName[0]
+			def name = propertyTypeName[1]
+			def camelCaseName = name[0].toLowerCase() + name.substring(1)
+			
+			writer.append("public void set" + name + "(" + type + " " + camelCaseName + ") {\n")
+			writer.append("this." + camelCaseName + " = " + camelCaseName + ";\n")
+			writer.append("}\n")
+			
+			writer.append("public " + type + " get" + name + "() {\n")
+			writer.append("return this." + camelCaseName + ";\n")
+			writer.append("}\n")
+		}
+		
+		writer.append("}")
+		
+        return writer.toString()
     }
 
-    /**
-     * Creates the script items for the domain.
-     * @param name
-     * @return
-     */
-    private String getDomainScript(String name){
-        String itemNameCreate = name + DatabaseType.CREATE.getValue()
-        String itemNameInsert = name + DatabaseType.INSERT.getValue()
-        String itemNameUpdate = name + DatabaseType.UPDATE.getValue()
-        String itemNameSelect = name + DatabaseType.SELECT.getValue()
-        String itemNameDelete = name + DatabaseType.DELETE.getValue()
-        StringBufferWriter sbw = new StringBufferWriter(new StringBuffer())
-                .append("Script('${itemNameCreate}', 0) {\n")
-                .append("    input('dsl', 'org.jooq.DSLContext')\n")
-                .append("    script('groovy', 'src/main/script/DB/${itemNameCreate}.groovy')\n")
-                .append("}\n\n")
-                .append("Script('${itemNameInsert}', 0) {\n")
-                .append("    input('dsl', 'org.jooq.DSLContext')\n")
-                .append("    input('outcome', 'org.cristalise.kernel.persistency.outcome.Outcome')\n")
-                .append("    input('uuid', 'java.util.UUID')\n")
-                .append("    output('result', 'java.lang.Integer')\n")
-                .append("    script('groovy', 'src/main/script/DB/${itemNameInsert}.groovy')\n")
-                .append("}\n\n")
-                .append("Script('${itemNameUpdate}', 0) {\n")
-                .append("    input('dsl', 'org.jooq.DSLContext')\n")
-                .append("    input('outcome', 'org.cristalise.kernel.persistency.outcome.Outcome')\n")
-                .append("    input('uuid', 'java.util.UUID')\n")
-                .append("    output('result', 'java.lang.Integer')\n")
-                .append("    script('groovy', 'src/main/script/DB/${itemNameUpdate}.groovy')\n")
-                .append("}\n\n")
-                .append("Script('${itemNameSelect}', 0) {\n")
-                .append("    input('dsl', 'org.jooq.DSLContext')\n")
-                .append("    input('uuid', 'java.util.UUID')\n")
-                .append("    output('result', 'org.jooq.Record')\n")
-                .append("    script('groovy', 'src/main/script/DB/${itemNameSelect}.groovy')\n")
-                .append("}\n\n")
-                .append("Script('${itemNameDelete}', 0) {\n")
-                .append("    input('dsl', 'org.jooq.DSLContext')\n")
-                .append("    input('uuid', 'java.util.UUID')\n")
-                .append("    output('result', 'java.lang.Integer')\n")
-                .append("    script('groovy', 'src/main/script/DB/${itemNameDelete}.groovy')\n")
-                .append("}\n\n")
-    }
 
 }
