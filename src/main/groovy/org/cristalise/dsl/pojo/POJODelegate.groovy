@@ -84,9 +84,9 @@ class POJODelegate {
 
         def properties = new ArrayList()
         if (s.fields || s.structs || s.anyField) {
-            properties.add(uuidField)
             s.fields.each {
-                def name = "${it.name}".toUpperCase()
+				Logger.msg 1, "POJODelegate.buildProperties() - Name: $it.name"
+                def name = "${it.name}"
                 def type = getJavaFieldType(it.type)
 				def property = type + ":" + name
                 properties << property
@@ -159,7 +159,7 @@ class POJODelegate {
 		writer.append(packageLine)
 		writer.append("\n")
 		
-		importLines.each { 
+		importLines.unique().each { 
 			writer.append(it)
 		}
 		
@@ -183,13 +183,13 @@ class POJODelegate {
 			def name = propertyTypeName[1]
 			def camelCaseName = name[0].toLowerCase() + name.substring(1)
 			
-			writer.append("public void set" + name + "(" + type + " " + camelCaseName + ") {\n")
-			writer.append("this." + camelCaseName + " = " + camelCaseName + ";\n")
-			writer.append("}\n")
+			writer.append("\tpublic void set" + name + "(" + type + " " + camelCaseName + ") {\n")
+			writer.append("\t\tthis." + camelCaseName + " = " + camelCaseName + ";\n")
+			writer.append("\t}\n")
 			
-			writer.append("public " + type + " get" + name + "() {\n")
-			writer.append("return this." + camelCaseName + ";\n")
-			writer.append("}\n")
+			writer.append("\tpublic " + type + " get" + name + "() {\n")
+			writer.append("\t\treturn this." + camelCaseName + ";\n")
+			writer.append("\t}\n")
 		}
 		
 		writer.append("}")
