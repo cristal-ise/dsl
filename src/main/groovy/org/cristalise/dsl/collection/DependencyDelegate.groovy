@@ -20,11 +20,15 @@
  */
 package org.cristalise.dsl.collection
 
-import groovy.transform.CompileStatic
-
 import org.cristalise.dsl.property.PropertyBuilder
 import org.cristalise.kernel.collection.Dependency
+import org.cristalise.kernel.lookup.DomainPath
 import org.cristalise.kernel.lookup.ItemPath
+import org.cristalise.kernel.process.Gateway
+
+import groovy.transform.CompileStatic
+import org.cristalise.kernel.process.resource.BuiltInResources
+import org.cristalise.kernel.utils.Logger
 
 
 /**
@@ -33,6 +37,7 @@ import org.cristalise.kernel.lookup.ItemPath
  */
 @CompileStatic
 class DependencyDelegate {
+
     Dependency dependency
 
     public DependencyDelegate(String n) {
@@ -52,7 +57,22 @@ class DependencyDelegate {
     public void Member(Map attrs, Closure cl = null) {
         assert attrs && attrs.itemPath
 
-        def member = dependency.addMember(new ItemPath((String)attrs.itemPath))
+        ItemPath itemPath = new ItemPath()
+        String iPathStr = (String)attrs.itemPath
+
+        assert iPathStr
+
+        try {
+            itemPath = Gateway.getLookup().resolvePath(new DomainPath(iPathStr))
+        }
+        catch (Exception e) {
+            Logger.warning "Unable to find the domain path. ${e.localizedMessage}"
+        }
+
+        if (iPathStr.startsWith(BuiltInResources.COMP_ACT_DESC_RESOURCE.typeRoot))
+            itemPath.path[0] = iPathStr
+
+        def member = dependency.addMember(itemPath)
 
         if(cl) {
             DependencyMemberDelegate delegate = new DependencyMemberDelegate()

@@ -20,12 +20,19 @@
  */
 package org.cristalise.dsl.entity
 
-import groovy.transform.CompileStatic
-
+import org.apache.commons.lang3.StringUtils
+import org.cristalise.dsl.collection.DependencyBuilder
 import org.cristalise.dsl.lifecycle.instance.WorkflowBuilder
-import org.cristalise.kernel.entity.imports.ImportItem;
-import org.cristalise.kernel.lifecycle.instance.Workflow
+import org.cristalise.kernel.collection.Dependency
+import org.cristalise.kernel.collection.DependencyMember
+import org.cristalise.kernel.entity.imports.ImportDependency
+import org.cristalise.kernel.entity.imports.ImportDependencyMember
+import org.cristalise.kernel.entity.imports.ImportItem
+import org.cristalise.kernel.entity.imports.ImportOutcome
+import org.cristalise.kernel.lifecycle.CompositeActivityDef
+import org.cristalise.kernel.process.resource.BuiltInResources
 
+import groovy.transform.CompileStatic
 
 /**
  *
@@ -33,11 +40,20 @@ import org.cristalise.kernel.lifecycle.instance.Workflow
 @CompileStatic
 class ItemDelegate extends PropertyDelegate {
 
+    static String ENTITY_PATTERN = '/entity/'
     public ImportItem newItem = new ImportItem()
+    List<ImportOutcome> outcomes = new ArrayList<>()
 
-    public ItemDelegate(String name, String folder) {
+    public ItemDelegate(String name, String folder, String workflow) {
         newItem.name = name
         newItem.initialPath = folder
+        newItem.workflow = workflow
+    }
+
+    public ItemDelegate(String name, String folder, CompositeActivityDef caDef) {
+        newItem.name = name
+        newItem.initialPath = folder
+        newItem.workflow = caDef.getName()
     }
 
     public void processClosure(Closure cl) {
@@ -50,9 +66,44 @@ class ItemDelegate extends PropertyDelegate {
         cl()
 
         if (itemProps) newItem.properties = itemProps.list
+
+        if (outcomes) newItem.outcomes = ArrayList.cast(outcomes)
     }
 
     def Workflow(Closure cl) {
         newItem.wf = new WorkflowBuilder().build(cl)
+    }
+
+    public void Outcome(Map attr) {
+        assert attr
+        assert attr.schema
+        assert attr.version
+        assert attr.viewname
+        assert attr.path
+
+        outcomes.add(new ImportOutcome((String) attr.schema, attr.version as Integer, (String) attr.viewname, (String) attr.path))
+    }
+
+    public void Dependency(String name, Closure cl) {
+        assert name
+        assert cl
+
+        def builder = DependencyBuilder.build(name, cl)
+        Dependency dependency = builder.dependency
+
+        assert dependency
+
+        ImportDependency idep = new ImportDependency(dependency.name)
+        dependency.members.list.each { mem ->
+            DependencyMember member = DependencyMember.cast(mem)
+            String itemPath = member.itemPath.stringPath
+            if (itemPath.contains(BuiltInResources.COMP_ACT_DESC_RESOURCE.typeRoot) && itemPath.startsWith(ENTITY_PATTERN))
+                itemPath = itemPath.replaceFirst(ENTITY_PATTERN, StringUtils.EMPTY)
+            ImportDependencyMember imem = new ImportDependencyMember(itemPath)
+            imem.props = member.properties
+            idep.dependencyMemberList << imem
+        }
+
+        newItem.dependencyList.add(idep)
     }
 }
