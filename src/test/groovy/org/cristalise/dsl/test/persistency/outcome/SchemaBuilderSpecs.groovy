@@ -125,6 +125,26 @@ class SchemaBuilderSpecs extends Specification implements CristalTestSetup {
     }
 
 
+    def 'Structure can define anyField with defaults minOccurs=0 and processContents=lax'() {
+        expect:
+        SchemaTestBuilder.build('Test', 'TestData', 0) {
+            struct(name: 'TestData', useSequence: true) {
+                field(name:'stringField1')
+                anyField()
+            }
+        }.compareXML("""<xs:schema xmlns:xs='http://www.w3.org/2001/XMLSchema'>
+                          <xs:element name='TestData'>
+                            <xs:complexType>
+                              <xs:sequence>
+                                <xs:element name='stringField1' type='xs:string' minOccurs='1' maxOccurs='1' />
+                                <xs:any minOccurs='0' processContents='lax'/>
+                              </xs:sequence>
+                            </xs:complexType>
+                          </xs:element>
+                        </xs:schema>""")
+    }
+
+
     def 'Structure can define an unordered set of Fields xs:all which default type is string and multiplicity is 1'() {
         expect:
         SchemaTestBuilder.build('Test', 'TestData', 0) {
@@ -284,6 +304,53 @@ class SchemaBuilderSpecs extends Specification implements CristalTestSetup {
                         </xs:schema>""")
     }
 
+    def 'Attribute can specify minInclusive/maxInclusive/minExclusive/maxExclusive restrictions'() {
+        expect:
+        SchemaTestBuilder.build('Test', 'TestData', 0) {
+            struct(name: 'TestData') {
+                attribute(name:'inclusive', type:'integer', minInclusive:0, maxInclusive: 10)
+                attribute(name:'exclusive', type:'integer', minExclusive:0, maxExclusive: 10)
+                attribute(name:'minExclusive', type:'integer', minExclusive:0)
+                attribute(name:'maxInclusive', type:'integer', maxInclusive: 10)
+            }
+        }.compareXML("""<xs:schema xmlns:xs='http://www.w3.org/2001/XMLSchema'>
+                          <xs:element name='TestData'>
+                            <xs:complexType>
+                              <xs:attribute name="inclusive">
+                                <xs:simpleType>
+                                  <xs:restriction base="xs:integer">
+                                    <xs:minInclusive value="0"/>
+                                    <xs:maxInclusive value="10"/>
+                                  </xs:restriction>
+                                </xs:simpleType>
+                              </xs:attribute>
+                              <xs:attribute name="exclusive">
+                                <xs:simpleType>
+                                  <xs:restriction base="xs:integer">
+                                    <xs:minExclusive value="0"/>
+                                    <xs:maxExclusive value="10"/>
+                                  </xs:restriction>
+                                </xs:simpleType>
+                              </xs:attribute>
+                              <xs:attribute name="minExclusive">
+                                <xs:simpleType>
+                                  <xs:restriction base="xs:integer">
+                                    <xs:minExclusive value="0"/>
+                                  </xs:restriction>
+                                </xs:simpleType>
+                              </xs:attribute>
+                              <xs:attribute name="maxInclusive">
+                                <xs:simpleType>
+                                  <xs:restriction base="xs:integer">
+                                    <xs:maxInclusive value="10"/>
+                                  </xs:restriction>
+                                </xs:simpleType>
+                              </xs:attribute>
+                            </xs:complexType>
+                          </xs:element>
+                        </xs:schema>""")
+    }
+
     def 'Attribute CANNOT specify multiplicity other than 0..1 and 1..1'() {
         when: "attribute specifies multiplicity"
         SchemaTestBuilder.build('Test', 'TestData', 0) {
@@ -295,11 +362,24 @@ class SchemaBuilderSpecs extends Specification implements CristalTestSetup {
         then: "InvalidDataException is thrown"
         thrown(InvalidDataException)
     }
+
+    def 'Attribute CANNOT specify documentation'() {
+        when: "attribute specifies multiplicity"
+        SchemaTestBuilder.build('Test', 'TestData', 0) {
+            struct(name: 'TestData') {
+                attribute(name: 'attr1', documentation: 'docs')
+            }
+        }
+
+        then: "InvalidDataException is thrown"
+        thrown(InvalidDataException)
+    }
  
+
     def 'Field can specify multiplicity'() {
         expect:
         SchemaTestBuilder.build('Test', 'TestData', 0) {
-            struct(name: 'TestData') {
+            struct(name: 'TestData', useSequence: true) {
                 field(name:'default')
                 field(name:'many',        multiplicity:'*')
                 field(name:'fivehundred', multiplicity:'500')
@@ -310,14 +390,14 @@ class SchemaBuilderSpecs extends Specification implements CristalTestSetup {
         }.compareXML("""<xs:schema xmlns:xs='http://www.w3.org/2001/XMLSchema'>
                             <xs:element name='TestData'>
                                 <xs:complexType>
-                                    <xs:all minOccurs='0'>
+                                    <xs:sequence>
                                         <xs:element name='default'     type='xs:string' minOccurs='1' maxOccurs='1' />
-                                        <xs:element name='many'        type='xs:string' minOccurs='0' />
+                                        <xs:element name='many'        type='xs:string' minOccurs='0' maxOccurs='unbounded' />
                                         <xs:element name='fivehundred' type='xs:string' minOccurs='500' maxOccurs='500' />
-                                        <xs:element name='zeroToMany'  type='xs:string' minOccurs='0' />
+                                        <xs:element name='zeroToMany'  type='xs:string' minOccurs='0' maxOccurs='unbounded' />
                                         <xs:element name='oneToFive'   type='xs:string' minOccurs='1' maxOccurs='5' />
                                         <xs:element name='reset'       type='xs:string' />
-                                    </xs:all>
+                                    </xs:sequence>
                                 </xs:complexType>
                             </xs:element>
                         </xs:schema>""")
@@ -373,6 +453,56 @@ class SchemaBuilderSpecs extends Specification implements CristalTestSetup {
                           </xs:element>
                         </xs:schema>""")
     }
+
+    def 'Field can specify minInclusive/maxInclusive/minExclusive/maxExclusive restrictions'() {
+        expect:
+        SchemaTestBuilder.build('Test', 'TestData', 0) {
+            struct(name: 'TestData') {
+                field(name:'inclusive', type:'integer', minInclusive:0, maxInclusive: 10)
+                field(name:'exclusive', type:'integer', minExclusive:0, maxExclusive: 10)
+                field(name:'minExclusive', type:'integer', minExclusive:0)
+                field(name:'maxInclusive', type:'integer', maxInclusive: 10)
+            }
+        }.compareXML("""<xs:schema xmlns:xs='http://www.w3.org/2001/XMLSchema'>
+                          <xs:element name='TestData'>
+                            <xs:complexType>
+                              <xs:all minOccurs='0'>
+                                <xs:element name="inclusive" minOccurs="1" maxOccurs="1">
+                                  <xs:simpleType>
+                                    <xs:restriction base="xs:integer">
+                                      <xs:minInclusive value="0"/>
+                                      <xs:maxInclusive value="10"/>
+                                    </xs:restriction>
+                                  </xs:simpleType>
+                                </xs:element>
+                                <xs:element name="exclusive" minOccurs="1" maxOccurs="1">
+                                  <xs:simpleType>
+                                    <xs:restriction base="xs:integer">
+                                      <xs:minExclusive value="0"/>
+                                      <xs:maxExclusive value="10"/>
+                                    </xs:restriction>
+                                  </xs:simpleType>
+                                </xs:element>
+                                <xs:element name="minExclusive" minOccurs="1" maxOccurs="1">
+                                  <xs:simpleType>
+                                    <xs:restriction base="xs:integer">
+                                      <xs:minExclusive value="0"/>
+                                    </xs:restriction>
+                                  </xs:simpleType>
+                                </xs:element>
+                                <xs:element name="maxInclusive" minOccurs="1" maxOccurs="1">
+                                  <xs:simpleType>
+                                    <xs:restriction base="xs:integer">
+                                      <xs:maxInclusive value="10"/>
+                                    </xs:restriction>
+                                  </xs:simpleType>
+                                </xs:element>
+                              </xs:all>
+                            </xs:complexType>
+                          </xs:element>
+                        </xs:schema>""")
+    }
+
 
     def 'Attribute can define the default value'() {
             expect:
@@ -502,6 +632,28 @@ class SchemaBuilderSpecs extends Specification implements CristalTestSetup {
     }
 
 
+    def 'Field can have documentation'() {
+        expect:
+        SchemaTestBuilder.build('Test', 'TestData', 0) {
+            struct(name: 'TestData') {
+                field(name: 'Field', documentation: 'Field has Documentation')
+            }
+        }.compareXML("""<xs:schema xmlns:xs='http://www.w3.org/2001/XMLSchema'>
+                          <xs:element name='TestData'>
+                            <xs:complexType>
+                              <xs:all minOccurs='0'>
+                                <xs:element name='Field' type='xs:string' minOccurs='1' maxOccurs='1'>
+                                  <xs:annotation>
+                                    <xs:documentation>Field has Documentation</xs:documentation>
+                                  </xs:annotation>
+                                </xs:element>
+                              </xs:all>
+                            </xs:complexType>
+                          </xs:element>
+                        </xs:schema>""")
+    }
+
+    
     def 'Field can have Unit which is added as attribute of type string'() {
         expect:
         SchemaTestBuilder.build('Test', 'TestData', 0) {
@@ -566,7 +718,7 @@ class SchemaBuilderSpecs extends Specification implements CristalTestSetup {
         SchemaTestBuilder.build('test', 'PatientDetails', 0) {
             struct(name: 'PatientDetails', documentation: 'This is the Schema for Basic Tutorial') {
                 attribute(name: 'InsuranceNumber', type: 'string', default: '123456789ABC')
-                field(name: 'DateOfBirth',     type: 'date')
+                field(name: 'DateOfBirth',     type: 'date', documentation: 'DateOfBirth docs') {dynamicForms(updateScriptRef : "Script:0")}
                 field(name: 'Gender',          type: 'string', values: ['male', 'female'])
                 field(name: 'Weight',          type: 'decimal') { unit(values: ['g', 'kg'], default: 'kg') }
             }
@@ -578,8 +730,19 @@ class SchemaBuilderSpecs extends Specification implements CristalTestSetup {
                    </xs:annotation>
                    <xs:complexType>
                    <xs:all minOccurs="0">
-                     <xs:element minOccurs="1" maxOccurs="1" name="DateOfBirth" type="xs:date"/>
-                     <xs:element minOccurs="1" maxOccurs="1" name="Gender">
+                   <xs:element name='DateOfBirth' type='xs:date' minOccurs='1' maxOccurs='1'>
+                     <xs:annotation>
+                       <xs:documentation>DateOfBirth docs</xs:documentation>
+                       <xs:appinfo>
+                         <dynamicForms>
+                           <additional>
+                             <updateScriptRef>Script:0</updateScriptRef>
+                           </additional>
+                         </dynamicForms>
+                       </xs:appinfo>
+                     </xs:annotation>
+                    </xs:element>
+                    <xs:element minOccurs="1" maxOccurs="1" name="Gender">
                        <xs:simpleType>
                          <xs:restriction base="xs:string">
                            <xs:enumeration value="male" />
@@ -610,7 +773,7 @@ class SchemaBuilderSpecs extends Specification implements CristalTestSetup {
              </xs:schema>""")
     }
 
-    def 'Struct can define nested struct with multiplicity'() {
+    def 'Structure can define nested Structure with multiplicity'() {
         expect:
         def titles = ['Mr','Mrs','Miss','Ms','Sir','Dr','dr']
         def states = ['UNINITIALISED', 'ACTIVE', 'DEACTIVETED']
@@ -618,8 +781,8 @@ class SchemaBuilderSpecs extends Specification implements CristalTestSetup {
     
         SchemaTestBuilder.build('test', 'Person', 0) {
             struct(name: 'Person', documentation: 'Person data', useSequence: true) {
-                field(name: 'Title',     type: 'string', values: titles)
-                field(name: 'Name',      type: 'string')
+                field(name: 'Title',  type: 'string', values: titles)
+                field(name: 'Name',   type: 'string')
                 field(name: 'State',  type: 'string', values: states) { dynamicForms (hidden: true) }
     
                 // next 3 structs were copied from contactMech
@@ -704,9 +867,11 @@ class SchemaBuilderSpecs extends Specification implements CristalTestSetup {
         SchemaTestBuilder.build('test', 'PatientDetails', 0) {
             struct(name: 'PatientDetails', documentation: 'This is the Schema for Basic Tutorial') {
                 attribute(name: 'InsuranceNumber', type: 'string', default: '123456789ABC')
-                field(name: 'DateOfBirth',     type: 'date')
-                field(name: 'Gender',          type: 'string', values: ['male', 'female'])
-                field(name: 'Weight',          type: 'decimal') { attribute(name: 'unit', type: 'string', values: ['g', 'kg'], default: 'kg') }
+                field(name: 'DateOfBirth', type: 'date')
+                field(name: 'Gender',      type: 'string', values: ['male', 'female'])
+                field(name: 'Weight',      type: 'decimal') { 
+                    attribute(name: 'unit', type: 'string', values: ['g', 'kg'], default: 'kg')
+                }
             }
         }.compareXML(
             """<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">

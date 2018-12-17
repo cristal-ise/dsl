@@ -73,24 +73,34 @@ trait CristalTestSetup {
         Logger.removeLogStream(System.out);
     }
 
+    public void inMemorySetup(String conf, String clc,int logLevel) {
+        cristalSetup(logLevel, conf, clc)
+    }
+
     public void inMemorySetup(int logLevel = defaultLogLevel) {
         cristalSetup(logLevel, 'src/test/conf/testServer.conf', 'src/test/conf/testInMemory.clc')
         //FieldUtils.writeDeclaredStaticField(Gateway.class, "mLookupManager", Gateway.getLookup(), true)
     }
 
-    public void inMemoryServer(int logLevel = defaultLogLevel) {
-        serverSetup(logLevel, 'src/test/conf/testServer.conf', 'src/test/conf/testInMemory.clc')
+    public void inMemoryServer(String conf, String clc, int logLevel, boolean skipBootstrap = false) {
+        serverSetup(logLevel, conf, clc, skipBootstrap)
+    }
+
+    public void inMemoryServer(int logLevel = defaultLogLevel, boolean skipBootstrap = false) {
+        serverSetup(logLevel, 'src/test/conf/testServer.conf', 'src/test/conf/testInMemory.clc', skipBootstrap)
         //Thread.sleep(2000)
     }
 
-    public Authenticator serverSetup(int logLevel, String config, String connect) {
+    public Authenticator serverSetup(int logLevel, String config, String connect, boolean skipBootstrap = false) {
         Authenticator auth = cristalSetup(logLevel, config, connect)
         Logger.initConsole("ItemServer");
 
         Gateway.startServer()
-        Bootstrap.run();
 
-        waitBootstrapThread()
+        if (!skipBootstrap) {
+            Bootstrap.run();
+            waitBootstrapThread()
+        }
 
         return auth
     }
@@ -101,8 +111,8 @@ trait CristalTestSetup {
     }
 
     public void cristalInit(int logLevel, String config, String connect) {
-        String[] args = ['-logLevel', "$logLevel", '-config', config, '-connect', connect]
-        Gateway.init(AbstractMain.readC2KArgs(args))
+        loggerSetup(logLevel)
+        Gateway.init(AbstractMain.readPropertyFiles(config, connect, null))
     }
 
     public void cristalCleanup() {
